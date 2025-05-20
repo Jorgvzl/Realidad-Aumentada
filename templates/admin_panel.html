@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración de Videos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Estilo opcional para el tamaño del QR en la tabla */
+        .qr-code-img {
+            max-width: 100px; /* Ajusta según necesidad */
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gestor de Videos</h1>
+
+    <h2>Agregar Nuevo Video</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <div>
+            <label for="title">Título (opcional):</label>
+            <input type="text" id="title" name="title">
+        </div>
+        <div>
+            <label for="video_file">Archivo de Video (Formatos: {{ config.ALLOWED_EXTENSIONS|join(', ') }}):</label>
+            <input type="file" id="video_file" name="video_file" accept="video/*" required> 
+            </div>
+        <button type="submit">Agregar Video</button>
+    </form>
+
+    <h2>Videos Alojados</h2>
+    {% if videos %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Título</th>
+                    <th>Nombre de Archivo</th>
+                    <th>URL Específica</th>
+                    <th>Código QR</th> <th>Fecha de Carga</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for video in videos %}
+                <tr>
+                    <td>{{ video.id }}</td>
+                    <td>{{ video.title if video.title else 'N/A' }}</td>
+                    <td>{{ video.filename }}</td>
+                    <td>
+                        <a href="{{ url_for('play_video', slug=video.url_slug) }}" target="_blank">
+                            /video/{{ video.url_slug }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if video.qr_code_data_uri %}
+                            <img src="{{ video.qr_code_data_uri }}" alt="Código QR para {{ video.title if video.title else video.filename }}" class="qr-code-img">
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ video.created_at }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('delete_video', video_id=video.id) }}" style="display:inline;">
+                            <button type="submit" onclick="return confirm('¿Estás seguro de que quieres eliminar este video?');">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No hay videos alojados todavía.</p>
+    {% endif %}
+</body>
+</html>
