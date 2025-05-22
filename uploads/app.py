@@ -8,15 +8,10 @@ import base64 # Para codificar la imagen en base64
 
 app = Flask(__name__)
 app.config['DATABASE'] = 'database.db'
-# Es buena práctica definir UPLOAD_FOLDER usando el directorio de la instancia de Render si usas Discos Persistentes
-# Por ahora, lo mantenemos relativo. Ejemplo con Render Disks:
-# app.config['UPLOAD_FOLDER'] = os.path.join(os.environ.get('RENDER_INSTANCE_DIR', '.'), 'uploads', 'videos')
-# app.config['DATABASE'] = os.path.join(os.environ.get('RENDER_INSTANCE_DIR', '.'), 'database.db')
-app.config['UPLOAD_FOLDER'] = os.path.join('uploads', 'videos')
-app.config['ALLOWED_EXTENSIONS'] = {'mp4', 'webm', 'ogg'}
+app.config['UPLOAD_FOLDER'] = os.path.join('uploads', 'videos') # Ruta donde se guardarán los videos
+app.config['ALLOWED_EXTENSIONS'] = {'mp4', 'webm', 'ogg'} # Formatos permitidos
 
 # Crear la carpeta de subidas si no existe
-# Esto se ejecutará cuando el módulo se cargue por primera vez
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
@@ -24,9 +19,7 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        # Asegúrate de que la ruta de la base de datos es la correcta
-        db_path = app.config['DATABASE']
-        db = g._database = sqlite3.connect(db_path)
+        db = g._database = sqlite3.connect(app.config['DATABASE'])
         db.row_factory = sqlite3.Row # Para acceder a las columnas por nombre
     return db
 
@@ -37,9 +30,10 @@ def close_connection(exception):
         db.close()
 
 def init_db():
-    # Esta función se llamará si la base de datos no existe.
     with app.app_context():
         db = get_db()
+        # Actualiza el schema.sql para incluir qr_code_data_uri
+        # Si ya tienes datos, necesitarás migrar tu tabla o reiniciarla.
         schema_sql = """
         DROP TABLE IF EXISTS videos;
         CREATE TABLE videos (
@@ -48,27 +42,18 @@ def init_db():
             filename TEXT NOT NULL UNIQUE,
             url_slug TEXT NOT NULL UNIQUE,
             mimetype TEXT NOT NULL,
-            qr_code_data_uri TEXT,
+            qr_code_data_uri TEXT, -- Nuevo campo para el QR
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
         db.cursor().executescript(schema_sql)
         db.commit()
-        print("Base de datos inicializada.")
 
-def check_init_db():
-    # Comprueba si la base de datos existe, si no, la inicializa.
-    # Esto es crucial para entornos como Render donde el `if __name__ == '__main__':` no se ejecuta de la misma manera.
-    db_path = app.config['DATABASE']
-    if not os.path.exists(db_path):
-        print(f"Base de datos no encontrada en '{db_path}'. Inicializando...")
-        init_db() # No necesitas app.app_context() aquí porque init_db ya lo maneja.
-    else:
-        print(f"Base de datos encontrada en '{db_path}'.")
-
-# Llama a check_init_db() cuando la aplicación se configura.
-# Esto asegura que la base de datos se inicialice antes de que se maneje la primera solicitud si no existe.
-check_init_db()
+# Comprobación para inicializar la BD si no existe (ejecutar solo una vez o proteger)
+# Es recomendable manejar la inicialización de la BD de forma más controlada en producción.
+# Por ejemplo, con un comando CLI de Flask.
+# from app import init_db
+# init_db()
 
 
 def allowed_file(filename):
@@ -83,7 +68,6 @@ def admin_panel():
         video_file = request.files.get('video_file')
 
         if not video_file or video_file.filename == '':
-            # Considera añadir un mensaje flash para el usuario
             return redirect(request.url)
 
         if video_file and allowed_file(video_file.filename):
@@ -91,17 +75,14 @@ def admin_panel():
             extension = original_filename.rsplit('.', 1)[1].lower()
             
             unique_id = str(uuid.uuid4())
-            # Limpia el nombre del archivo para crear un slug más amigable si es necesario
-            # Por ahora, usamos el unique_id directamente para el nombre del archivo también
             new_filename = f"{unique_id}.{extension}"
-            url_slug = f"video_{unique_id}" # Slug para la URL
+            url_slug = f"video_{unique_id}"
 
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
             video_file.save(filepath)
             mimetype = video_file.mimetype
 
             # Generar URL completa para el código QR
-            # _external=True es importante para que la URL sea absoluta
             video_url = url_for('play_video', slug=url_slug, _external=True)
 
             # Generar Código QR
@@ -118,19 +99,15 @@ def admin_panel():
                     (title if title else original_filename, new_filename, url_slug, mimetype, qr_code_data_uri)
                 )
                 db.commit()
-            except sqlite3.IntegrityError as e:
-                # Esto podría ocurrir si el filename o url_slug no son únicos, aunque uuid debería prevenirlo.
-                # Es buena práctica eliminar el archivo subido si la inserción en BD falla.
+            except sqlite3.IntegrityError:
                 os.remove(filepath)
-                print(f"Error de integridad al insertar en la BD: {e}")
-                # Considera añadir un mensaje flash para el usuario
-                pass 
+                pass # Considera añadir un mensaje de error
             return redirect(url_for('admin_panel'))
         else:
-            # Considera añadir un mensaje flash para el usuario sobre el tipo de archivo no permitido
-            return redirect(request.url)
+            return redirect(request.url) # Considera añadir un mensaje de error
 
     cursor = db.cursor()
+    # Asegúrate de seleccionar el nuevo campo qr_code_data_uri
     cursor.execute("SELECT id, title, filename, url_slug, qr_code_data_uri, created_at FROM videos ORDER BY created_at DESC")
     videos = cursor.fetchall()
     return render_template('admin_panel.html', videos=videos, config=app.config)
@@ -149,7 +126,6 @@ def play_video(slug):
 
 @app.route('/uploads/videos/<filename>')
 def uploaded_file(filename):
-    # Sirve los archivos desde la carpeta de subidas
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
@@ -169,21 +145,26 @@ def delete_video(video_id):
             cursor.execute("DELETE FROM videos WHERE id = ?", (video_id,))
             db.commit()
         except Exception as e:
-            print(f"Error al eliminar el video {video_id} o su archivo: {e}")
-            # Considera añadir un mensaje flash para el usuario
-            pass # Evita que la app crashee, pero loguea el error
+            print(f"Error al eliminar: {e}")
+            pass
             
     return redirect(url_for('admin_panel'))
 
-# El bloque if __name__ == '__main__': se usa para el desarrollo local.
-# Gunicorn (o el servidor WSGI que use Render) no ejecutará esto directamente.
-# En su lugar, importará la instancia 'app' de este módulo.
 if __name__ == '__main__':
-    # La inicialización de la BD ya se maneja con check_init_db() al inicio del script.
-    # app.run() es solo para desarrollo local.
-    # Render usará Gunicorn con un comando como: gunicorn app:app
+    # Crear la base de datos si no existe la primera vez
+    # Es más robusto usar un script de inicialización o migraciones para esto
+    db_path = app.config['DATABASE']
+    if not os.path.exists(db_path):
+        print(f"Base de datos no encontrada en '{db_path}'. Inicializando...")
+        # Asegúrate de que el contexto de la aplicación esté activo para init_db
+        with app.app_context():
+             init_db()
+        print("Base de datos inicializada.")
+        
     app.run(
-        host='0.0.0.0', # Escucha en todas las interfaces de red
-        port=int(os.environ.get("PORT", 5000)), # Render puede establecer la variable PORT
-        debug=True # Desactiva debug=True en producción real o usa una variable de entorno
+        host='0.0.0.0',
+        port=5000,
+        debug=True,
+        #ssl_context=('localhost+3.pem', 'localhost+3-key.pem')  # HTTPS habilitado
+
     )
