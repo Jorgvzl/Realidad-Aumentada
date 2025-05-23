@@ -165,8 +165,10 @@ def play_video(slug):
 
 @app.route('/uploads/videos/<filename>')
 def uploaded_file(filename):
-    # Sirve los archivos desde la carpeta de subidas
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    response = send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Cross-Origin-Resource-Policy', 'cross-origin')
+    return response
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

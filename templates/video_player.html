@@ -1,77 +1,73 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>{{ video_title }} - Ver RA</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>{{ video_title if video_title else 'Video' }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body {
+            font-family: sans-serif;
             margin: 0;
-            overflow: hidden;
+            line-height: 1.6;
         }
-        .marker-frame {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 220px;
-            height: 220px;
-            border: 5px solid rgba(255, 255, 255, 0.8);
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
-            border-radius: 8px;
-            z-index: 10;
+        #normal-view-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 90vh;
         }
-        .detected-text {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            color: #00ff00;
-            font-size: 14px;
-            font-family: Arial, sans-serif;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 4px 8px;
-            border-radius: 4px;
-            pointer-events: none;
-            user-select: none;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 20;
+        #regularVideoPlayer {
+            max-width: 80%;
+            width: 640px; /* Ancho base */
+            height: auto;
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+            background-color: #000; /* Fondo negro para el reproductor */
         }
-        .detected-text.visible {
-            opacity: 1;
+        button, .button-link {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 1em;
+            margin: 5px;
         }
-        a-video {
-            object-fit: cover;
+        button:hover, .button-link:hover {
+            background-color: #0056b3;
+        }
+        .button-link {
+             display: inline-block;
+             background-color: #6c757d;
+        }
+        .button-link:hover {
+            background-color: #5a6268;
         }
     </style>
 </head>
 <body>
-    <a-scene embedded arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" vr-mode-ui="enabled: false">
-        <a-marker preset="hiro" id="hiro-marker" type="pattern" url="https://raw.githubusercontent.com/jeromeetienne/ar.js/3.3.2/data/data/patt.hiro">
-            <a-video id="video" src="{{ url_for('uploaded_file', filename=video_filename) }}" width="1.5" height="0.85" position="0 0 0" rotation="-90 0 0" loop="true" muted="true"></a-video>
-        </a-marker>
-        <a-entity camera></a-entity>
-    </a-scene>
-    <div class="marker-frame"></div>
-    <div id="detectedText" class="detected-text">Detectaaaado</div>
+    <div id="normal-view-container">
+        <h1>{{ video_title if video_title else 'Título no especificado' }}</h1>
+        <video id="regularVideoPlayer" controls>
+            <source src="{{ url_for('uploaded_file', filename=video_filename) }}" type="{{ video_mimetype if video_mimetype else 'video/mp4' }}">
+            Tu navegador no soporta la etiqueta de video.
+        </video>
+        {# IMPORTANTE: Asegurarse de que el backend pase la variable `video_url_slug` al renderizar esta plantilla #}
+        <a href="{{ url_for('view_in_ar', slug=slug) }}" class="button-link">Ver en Realidad Aumentada</a>
+        <a href="{{ url_for('admin_panel') }}" class="button-link">Volver al Panel</a>
+    </div>
 
     <script>
-        const hiroMarker = document.querySelector('#hiro-marker');
-        const detectedText = document.getElementById('detectedText');
-        const video = document.getElementById('video');
-
-        hiroMarker.addEventListener('markerFound', () => {
-            detectedText.classList.add('visible');
-            video.play(); // Inicia la reproducción del video
-        });
-
-        hiroMarker.addEventListener('markerLost', () => {
-            detectedText.classList.remove('visible');
-            video.pause(); // Pausa el video si se pierde el marcador
-        });
+    // Lógica JavaScript para controlar la interfaz
+    document.addEventListener('DOMContentLoaded', function () {
+        const regularVideoPlayer = document.getElementById('regularVideoPlayer');
+        // Aquí puedes agregar más lógica si es necesario
+    });
     </script>
 </body>
 </html>
+
