@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Reproductor de Video - {{ video_filename if video_filename else 'Video' }}</title>
+    <title>{{ video_title if video_title else 'Video' }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body {
@@ -47,222 +47,24 @@
         .button-link:hover {
             background-color: #5a6268;
         }
-
-        /* Estilos para el modo RA */
-        #ar-scene-container {
-            display: none; /* Oculto por defecto */
-            width: 100vw;  /* Ocupa toda la ventana */
-            height: 100vh;
-            margin: 0;
-            overflow: hidden; /* Evita barras de scroll */
-            position: fixed;  /* Posición fija para cubrir todo */
-            top: 0;
-            left: 0;
-            z-index: 1000; /* Por encima de otro contenido */
-            background-color: #000; /* Fondo mientras carga la cámara */
-        }
-        #ar-instructions {
-            display: none; /* Oculto por defecto */
-            padding: 15px;
-            background-color: rgba(40, 40, 40, 0.9); /* Fondo oscuro semitransparente */
-            color: #fff;
-            text-align: center;
-            position: fixed; /* Flotando sobre la vista de RA */
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1001;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-        }
-        .marker-image {
-            width: 80px;
-            height: 80px;
-            border: 2px solid #fff;
-            margin-top: 10px;
-            background-color: #fff; /* Para que el marcador resalte */
-        }
-        #ar-exit-button {
-            display: none; /* Oculto por defecto */
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1002;
-            background-color: #dc3545; /* Rojo para salir */
-        }
-        #ar-exit-button:hover {
-            background-color: #c82333;
-        }
     </style>
-
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 </head>
 <body>
     <div id="normal-view-container">
-        <h1>Viendo: {{ video_filename if video_filename else 'Video no especificado' }}</h1>
+        <h1>{{ video_title if video_title else 'Título no especificado' }}</h1>
         <video id="regularVideoPlayer" controls>
             <source src="{{ url_for('uploaded_file', filename=video_filename) }}" type="{{ video_mimetype if video_mimetype else 'video/mp4' }}">
             Tu navegador no soporta la etiqueta de video.
         </video>
-        <button id="arButton">👁️ Ver en Realidad Aumentada</button>
         <a href="{{ url_for('admin_panel') }}" class="button-link">Volver al Panel</a>
     </div>
 
-    <div id="ar-instructions">
-        Apunta tu cámara al marcador "Hiro" para ver el video en RA.
-        <div><img src="https://raw.githack.com/AR-js-org/AR.js/master/data/images/HIRO.png" alt="Marcador Hiro" class="marker-image"></div>
-        <small>(Puedes imprimirlo o mostrarlo en otra pantalla)</small>
-    </div>
-
-    <button id="ar-exit-button">✕ Salir de RA</button>
-
-    <div id="ar-scene-container">
-        <a-scene
-            id="myARScene"
-            embedded
-            arjs='sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'
-            renderer='antialias: true; alpha: true; precision: mediump; physicallyCorrectLights: true;'
-            vr-mode-ui='enabled: false;'
-            gesture-detector>
-
-            <a-assets>
-                <video id="arVideo" src="{{ url_for('uploaded_file', filename=video_filename) }}"
-                       loop="true" crossOrigin="anonymous" style="display:none" playsinline webkit-playsinline muted>
-                </video>
-            </a-assets>
-
-            <a-marker preset='hiro'>
-                <a-plane
-                    id="videoPlane"
-                    width="1.6" height="0.9" position="0 0 0"  rotation="-90 0 0" material="shader: flat; src: #arVideo; transparent: true; opacity: 1.0;">
-                </a-plane>
-            </a-marker>
-
-            <a-entity camera></a-entity>
-        </a-scene>
-    </div>
-
-<script>
-// 4. Lógica JavaScript para controlar la interfaz y la experiencia AR
-document.addEventListener('DOMContentLoaded', function () {
-    const arButton = document.getElementById('arButton');
-    const arExitButton = document.getElementById('ar-exit-button');
-    const arSceneContainer = document.getElementById('ar-scene-container');
-    const arInstructions = document.getElementById('ar-instructions');
-    const normalViewContainer = document.getElementById('normal-view-container');
-
-    const arVideoElement = document.getElementById('arVideo');
-    const regularVideoPlayer = document.getElementById('regularVideoPlayer');
-    const videoPlane = document.getElementById('videoPlane'); // Referencia al plano del video en AR
-    const arScene = document.getElementById('myARScene'); // Referencia a la escena de A-Frame
-
-    let arModeActive = false;
-    let originalBodyOverflow; // Para restaurar el overflow del body
-
-    function enterARMode() {
-        // Primero, verifica si el navegador soporta getUserMedia
-        if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-            alert("Tu navegador no soporta las funciones necesarias para la Realidad Aumentada (acceso a cámara).");
-            return;
-        }
-
-        // Solicitar permiso de cámara
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(function(stream) {
-                // Permiso concedido. AR.js manejará el stream, así que podemos detener este.
-              //  stream.getTracks().forEach(track => track.stop());
-
-                // Ocultar vista normal y mostrar elementos de RA
-                normalViewContainer.style.display = 'none';
-                arInstructions.style.display = 'block';
-                arSceneContainer.style.display = 'block'; // Muestra el contenedor de la escena AR
-                arExitButton.style.display = 'block';
-
-                originalBodyOverflow = document.body.style.overflow;
-                document.body.style.overflow = 'hidden'; // Evitar scroll en modo RA
-
-                // Asegurarse de que la escena de A-Frame se reproduzca
-                // A-Frame puede tardar un momento en cargarse completamente.
-                if (arScene.hasLoaded) {
-                    arScene.play(); // Inicia el renderizado y la lógica de la escena A-Frame
-                } else {
-                    arScene.addEventListener('loaded', () => arScene.play());
-                }
-                
-                // Reproducir el video para AR. 'muted' es crucial para autoplay.
-                arVideoElement.muted = true;
-                arVideoElement.play().catch(e => console.error("Error al intentar reproducir video en RA:", e));
-                
-                // Ajustar dinámicamente la proporción del plano del video en AR
-                arVideoElement.onloadedmetadata = () => {
-                    const aspectRatio = arVideoElement.videoWidth / arVideoElement.videoHeight;
-                    if (videoPlane && !isNaN(aspectRatio) && aspectRatio > 0) {
-                        const planeWidth = parseFloat(videoPlane.getAttribute('width')); // Usamos el ancho definido en HTML
-                        videoPlane.setAttribute('height', planeWidth / aspectRatio);
-                    } else if (videoPlane) {
-                        // Fallback si no se puede obtener aspectRatio, usa el alto definido en HTML
-                        console.warn("No se pudo calcular aspectRatio del video AR, usando dimensiones por defecto del plano.");
-                    }
-                };
-                arModeActive = true;
-
-            })
-            .catch(function(err) {
-                console.error("Error al acceder a la cámara para RA: ", err);
-                alert("No se pudo acceder a la cámara. Asegúrate de haber concedido los permisos. La función de Realidad Aumentada no estará disponible.");
-                // Revertir la interfaz si falla el acceso a la cámara
-                exitARMode(false); // Llama a exitARMode sin recargar la página o reiniciar el video normal
-            });
-    }
-
-    function exitARMode(resumeNormalPlayer = true) {
-        normalViewContainer.style.display = 'flex'; // O el display original que tenías
-        arInstructions.style.display = 'none';
-        arSceneContainer.style.display = 'none'; // Oculta el contenedor de la escena AR
-        arExitButton.style.display = 'none';
-        
-        if (originalBodyOverflow !== undefined) {
-            document.body.style.overflow = originalBodyOverflow;
-        } else {
-            document.body.style.overflow = 'auto';
-        }
-
-
-        // Pausar el video de AR y la escena de A-Frame
-        if (arVideoElement) arVideoElement.pause();
-        if (arScene && arScene.isPlaying) {
-            arScene.pause(); // Detiene el renderizado y la lógica de la escena A-Frame
-        }
-        
-        arModeActive = false;
-
-        // Opcionalmente, reanudar el video normal si estaba reproduciéndose
-        if (resumeNormalPlayer && regularVideoPlayer && regularVideoPlayer.dataset.wasPlaying === 'true') {
-            regularVideoPlayer.play();
-        }
-        if(regularVideoPlayer) regularVideoPlayer.dataset.wasPlaying = 'false'; // Limpiar el estado
-    }
-
-    if (arButton) {
-        arButton.addEventListener('click', function() {
-            if (!arModeActive) {
-                // Guardar estado del video normal y pausarlo
-                if (regularVideoPlayer && !regularVideoPlayer.paused) {
-                    regularVideoPlayer.dataset.wasPlaying = 'true';
-                    regularVideoPlayer.pause();
-                } else if (regularVideoPlayer) {
-                    regularVideoPlayer.dataset.wasPlaying = 'false';
-                }
-                enterARMode();
-            }
-        });
-    }
-
-    if (arExitButton) {
-        arExitButton.addEventListener('click', () => exitARMode(true));
-    }
-});
-</script>
+    <script>
+    // Lógica JavaScript para controlar la interfaz
+    document.addEventListener('DOMContentLoaded', function () {
+        const regularVideoPlayer = document.getElementById('regularVideoPlayer');
+        // Aquí puedes agregar más lógica si es necesario
+    });
+    </script>
 </body>
 </html>

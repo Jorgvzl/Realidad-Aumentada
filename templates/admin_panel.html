@@ -11,21 +11,28 @@
             max-width: 100px; /* Ajusta según necesidad */
             height: auto;
         }
+        .logout-button {
+            margin-bottom: 20px; /* Espacio entre el botón y el resto del contenido */
+        }
     </style>
 </head>
 <body>
     <h1>Gestor de Videos</h1>
 
+    <form method="POST" action="{{ url_for('logout') }}" class="logout-button" style="display:inline;">
+        <button type="submit">Cerrar sesión</button>
+    </form>
+
     <h2>Agregar Nuevo Video</h2>
     <form method="POST" enctype="multipart/form-data">
         <div>
-            <label for="title">Título (opcional):</label>
+            <label for="title">Título:</label>
             <input type="text" id="title" name="title">
         </div>
         <div>
             <label for="video_file">Archivo de Video (Formatos: {{ config.ALLOWED_EXTENSIONS|join(', ') }}):</label>
             <input type="file" id="video_file" name="video_file" accept="video/*" required> 
-            </div>
+        </div>
         <button type="submit">Agregar Video</button>
     </form>
 
@@ -38,7 +45,8 @@
                     <th>Título</th>
                     <th>Nombre de Archivo</th>
                     <th>URL Específica</th>
-                    <th>Código QR</th> <th>Fecha de Carga</th>
+                    <th>Código QR</th>
+                    <th>Fecha de Carga</th>
                     <th>Acciones</th>
                 </tr>
             </thead>

@@ -2,6 +2,7 @@ import sqlite3
 import os
 import uuid # Para generar nombres de archivo únicos o slugs
 from flask import Flask, render_template, request, redirect, url_for, g, send_from_directory
+from flask import session, redirect, url_for, flash
 import qrcode # Importar la librería qrcode
 import io # Para manejar la imagen en memoria
 import base64 # Para codificar la imagen en base64
@@ -14,6 +15,8 @@ app.config['DATABASE'] = 'database.db'
 # app.config['DATABASE'] = os.path.join(os.environ.get('RENDER_INSTANCE_DIR', '.'), 'database.db')
 app.config['UPLOAD_FOLDER'] = os.path.join('uploads', 'videos')
 app.config['ALLOWED_EXTENSIONS'] = {'mp4', 'webm', 'ogg'}
+app.secret_key = '4dm1nUnefa'  # Cambia esto a una clave secreta real
+
 
 # Crear la carpeta de subidas si no existe
 # Esto se ejecutará cuando el módulo se cargue por primera vez
@@ -77,7 +80,10 @@ def allowed_file(filename):
 
 @app.route('/', methods=['GET', 'POST'])
 def admin_panel():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
     db = get_db()
+   
     if request.method == 'POST':
         title = request.form.get('title')
         video_file = request.files.get('video_file')
@@ -105,7 +111,8 @@ def admin_panel():
             video_url = url_for('play_video', slug=url_slug, _external=True)
 
             # Generar Código QR
-            qr_img = qrcode.make(video_url)
+            url_render = modificar_video_url(video_url)
+            qr_img = qrcode.make(url_render)
             buffered = io.BytesIO()
             qr_img.save(buffered, format="PNG")
             qr_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
@@ -139,19 +146,42 @@ def admin_panel():
 def play_video(slug):
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT filename, mimetype FROM videos WHERE url_slug = ?", (slug,))
+    cursor.execute("SELECT title, filename, mimetype FROM videos WHERE url_slug = ?", (slug,))
     video_data = cursor.fetchone()
 
     if video_data:
-        return render_template('video_player.html', video_filename=video_data['filename'], video_mimetype=video_data['mimetype'], slug=slug)
+        return render_template('video_player.html', 
+                               video_filename=video_data['filename'], 
+                               video_mimetype=video_data['mimetype'], 
+                               video_title=video_data['title'],  # Agregar el título aquí
+                               slug=slug)
     else:
         return "Video no encontrado", 404
+
 
 @app.route('/uploads/videos/<filename>')
 def uploaded_file(filename):
     # Sirve los archivos desde la carpeta de subidas
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        # Verificar las credenciales
+        if username == 'admin' and password == '4dm1n':
+            session['logged_in'] = True
+            return redirect(url_for('admin_panel'))
+        else:
+            flash('Credenciales incorrectas. Inténtalo de nuevo.')
+            return redirect(url_for('login'))
+    return render_template('login.html')
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
 
 @app.route('/delete_video/<int:video_id>', methods=['POST'])
 def delete_video(video_id):
@@ -174,6 +204,36 @@ def delete_video(video_id):
             pass # Evita que la app crashee, pero loguea el error
             
     return redirect(url_for('admin_panel'))
+
+def modificar_video_url(video_url):
+    """
+    Lee una URL de video, elimina el contenido hasta los 3 primeros '/',
+    y luego agrega el prefijo 'https://realidad-aumentada-sa1f.onrender.com/'.
+
+    Args:
+        video_url (str): La URL del video original.
+
+    Returns:
+        str: La URL modificada.
+    """
+    contador_slashes = 0
+    indice_tercer_slash = -1
+
+    for i, char in enumerate(video_url):
+        if char == '/':
+            contador_slashes += 1
+            if contador_slashes == 3:
+                indice_tercer_slash = i
+                break
+
+    if indice_tercer_slash != -1:
+        ruta_video = video_url[indice_tercer_slash + 1:]
+        nueva_url = f"https://realidad-aumentada-sa1f.onrender.com/{ruta_video}"
+        return nueva_url
+    else:
+        # Si no se encontraron 3 '/', devolver la URL original o manejar el error
+        return "No se encontraron suficientes '/' en la URL."
+
 
 # El bloque if __name__ == '__main__': se usa para el desarrollo local.
 # Gunicorn (o el servidor WSGI que use Render) no ejecutará esto directamente.
