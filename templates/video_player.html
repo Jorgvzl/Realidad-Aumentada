@@ -4,70 +4,160 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>{{ video_title if video_title else 'Video' }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-blue: #2563eb;
+            --secondary-blue: #3b82f6;
+            --dark-bg: #0f172a;
+            --light-bg: #f8fafc;
+            --white: #ffffff;
+            --gray: #64748b;
+        }
+
         body {
-            font-family: sans-serif;
+            font-family: 'Inter', sans-serif;
             margin: 0;
+            background: var(--light-bg);
+            color: var(--dark-bg);
             line-height: 1.6;
         }
+
         #normal-view-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            min-height: 90vh;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            min-height: 80vh;
         }
+
+        h1 {
+            color: var(--dark-bg);
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            text-align: center;
+            position: relative;
+            padding-bottom: 1rem;
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 3px;
+            background: linear-gradient(to right, var(--primary-blue), var(--secondary-blue));
+            border-radius: 2px;
+        }
+
         #regularVideoPlayer {
-            max-width: 80%;
-            width: 640px; /* Ancho base */
+            width: 100%;
+            max-width: 800px;
             height: auto;
-            border: 1px solid #ccc;
-            margin-bottom: 20px;
-            background-color: #000; /* Fondo negro para el reproductor */
+            aspect-ratio: 16/9;
+            border-radius: 12px;
+            background: #000;
+            margin: 2rem auto;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
         }
+
+        .button-container {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+
         button, .button-link {
-            padding: 10px 15px;
-            background-color: #007bff;
-            color: white;
+            padding: 0.8rem 1.5rem;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
-            text-decoration: none;
-            font-size: 1em;
-            margin: 5px;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
-        button:hover, .button-link:hover {
-            background-color: #0056b3;
-        }
+
         .button-link {
-             display: inline-block;
-             background-color: #6c757d;
+            background: linear-gradient(to bottom right, var(--primary-blue), var(--secondary-blue));
+            color: var(--white);
+            text-decoration: none;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
         }
+
         .button-link:hover {
-            background-color: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+            background: linear-gradient(to bottom right, var(--secondary-blue), var(--primary-blue));
+        }
+
+        .button-link.secondary {
+            background: var(--white);
+            color: var(--primary-blue);
+            border: 2px solid var(--primary-blue);
+            box-shadow: none;
+        }
+
+        .button-link.secondary:hover {
+            background: var(--primary-blue);
+            color: var(--white);
+        }
+
+        @media (max-width: 768px) {
+            #normal-view-container {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            #regularVideoPlayer {
+                border-radius: 8px;
+            }
         }
     </style>
 </head>
 <body>
     <div id="normal-view-container">
         <h1>{{ video_title if video_title else 'Título no especificado' }}</h1>
-        <video id="regularVideoPlayer" controls>
+        
+        <video id="regularVideoPlayer" controls playsinline>
             <source src="{{ url_for('uploaded_file', filename=video_filename) }}" type="{{ video_mimetype if video_mimetype else 'video/mp4' }}">
             Tu navegador no soporta la etiqueta de video.
         </video>
-        {# IMPORTANTE: Asegurarse de que el backend pase la variable `video_url_slug` al renderizar esta plantilla #}
-        <a href="{{ url_for('view_in_ar', slug=slug) }}" class="button-link">Ver en Realidad Aumentada</a>
-        <a href="{{ url_for('admin_panel') }}" class="button-link">Volver al Panel</a>
+
+        <div class="button-container">
+            <a href="{{ url_for('view_in_ar', slug=slug) }}" class="button-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 12h20M12 2v20M18 6l-4 4-4-4M6 18l4-4 4 4"/>
+                </svg>
+                Ver en RA
+            </a>
+            <a href="{{ url_for('admin_panel') }}" class="button-link secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Volver al Panel
+            </a>
+        </div>
     </div>
 
     <script>
-    // Lógica JavaScript para controlar la interfaz
     document.addEventListener('DOMContentLoaded', function () {
-        const regularVideoPlayer = document.getElementById('regularVideoPlayer');
-        // Aquí puedes agregar más lógica si es necesario
+        const videoPlayer = document.getElementById('regularVideoPlayer');
+        // Opcional: Agregar controles personalizados si es necesario
     });
     </script>
 </body>
 </html>
-

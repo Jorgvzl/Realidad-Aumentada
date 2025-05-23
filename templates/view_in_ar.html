@@ -23,6 +23,11 @@
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
             border-radius: 8px;
             z-index: 10;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        .marker-frame.hidden {
+            opacity: 0;
         }
         .detected-text {
             position: absolute;
@@ -43,6 +48,23 @@
         .detected-text.visible {
             opacity: 1;
         }
+        .instruction-text {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 16px;
+            border-radius: 8px;
+            pointer-events: none;
+            user-select: none;
+            transition: opacity 0.3s ease;
+            z-index: 15;
+        }
         a-video {
             object-fit: cover;
         }
@@ -51,26 +73,56 @@
 <body>
     <a-scene embedded arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" vr-mode-ui="enabled: false">
         <a-marker preset="hiro" id="hiro-marker" type="pattern" url="https://raw.githubusercontent.com/jeromeetienne/ar.js/3.3.2/data/data/patt.hiro">
-            <a-video id="video" src="{{ url_for('uploaded_file', filename=video_filename) }}" width="1.5" height="0.85" position="0 0 0" rotation="-90 0 0" loop="true" muted="true"></a-video>
+            <a-video id="video" 
+                     src="{{ url_for('uploaded_file', filename=video_filename) }}" 
+                     width="1.5" 
+                     height="0.85" 
+                     position="0 0 0" 
+                     rotation="-90 0 0" 
+                     autoplay="false"
+                     muted="true"
+                     playsinline>
+            </a-video>
         </a-marker>
         <a-entity camera></a-entity>
     </a-scene>
     <div class="marker-frame"></div>
     <div id="detectedText" class="detected-text">Detectado</div>
+    <div class="instruction-text">Enfoque el marcador Hiro</div>
 
     <script>
         const hiroMarker = document.querySelector('#hiro-marker');
         const detectedText = document.getElementById('detectedText');
         const video = document.getElementById('video');
+        const markerFrame = document.querySelector('.marker-frame');
+        const instructionText = document.querySelector('.instruction-text');
+
+        // Inicializar video pausado y sin loop
+        video.pause();
+        video.setAttribute('loop', 'false');
 
         hiroMarker.addEventListener('markerFound', () => {
             detectedText.classList.add('visible');
-            video.play(); // Inicia la reproducción del video
+            markerFrame.classList.add('hidden');
+            instructionText.style.opacity = '0'; // Ocultar texto instructivo
+            video.setAttribute('loop', 'true');
+            video.play().catch(error => console.log('Error al reproducir:', error));
         });
 
         hiroMarker.addEventListener('markerLost', () => {
             detectedText.classList.remove('visible');
-            video.pause(); // Pausa el video si se pierde el marcador
+            markerFrame.classList.remove('hidden');
+            instructionText.style.opacity = '1'; // Mostrar texto instructivo
+            video.pause();
+            video.currentTime = 0;
+            video.setAttribute('loop', 'false');
+        });
+
+        // Forzar estado inicial en móviles iOS
+        document.addEventListener('DOMContentLoaded', () => {
+            video.pause();
+            video.currentTime = 0;
+            instructionText.style.opacity = '1'; // Mostrar texto al cargar
         });
     </script>
 </body>

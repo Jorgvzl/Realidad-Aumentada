@@ -6,82 +6,228 @@
     <title>Panel de Administración de Videos</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        /* Estilo opcional para el tamaño del QR en la tabla */
-        .qr-code-img {
-            max-width: 100px; /* Ajusta según necesidad */
-            height: auto;
+        :root {
+            --primary-blue: #2563eb;
+            --secondary-blue: #3b82f6;
+            --light-blue: #e0f2fe;
+            --dark-blue: #1e40af;
+            --white: #ffffff;
         }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+
+        h1, h2 {
+            color: var(--dark-blue);
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            border-bottom: 3px solid var(--light-blue);
+            padding-bottom: 1rem;
+        }
+
         .logout-button {
-            margin-bottom: 20px; /* Espacio entre el botón y el resto del contenido */
+            float: right;
+            margin-top: -4rem;
+        }
+
+        form {
+            background: var(--light-blue);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        form div {
+            margin-bottom: 1.2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark-blue);
+        }
+
+        input[type="text"], 
+        input[type="file"] {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #cbd5e1;
+            border-radius: 6px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        button {
+            padding: 0.8rem 1.5rem;
+            background: linear-gradient(to bottom, var(--primary-blue), var(--secondary-blue));
+            color: var(--white);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+            background: linear-gradient(to bottom, var(--secondary-blue), var(--primary-blue));
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--white);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: var(--primary-blue);
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .qr-code-img {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px;
+            transition: transform 0.3s ease;
+        }
+
+        .qr-code-img:hover {
+            transform: scale(1.1);
+        }
+
+        .ar-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: var(--light-blue);
+            color: var(--dark-blue);
+            border-radius: 20px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .ar-button:hover {
+            background: var(--primary-blue);
+            color: var(--white);
+            text-decoration: none;
+        }
+
+        .actions-cell {
+            display: flex;
+            gap: 0.5rem;
         }
     </style>
 </head>
 <body>
-    <h1>Gestor de Videos</h1>
+    <div class="container">
+        <h1>Gestor de Videos</h1>
 
-    <form method="POST" action="{{ url_for('logout') }}" class="logout-button" style="display:inline;">
-        <button type="submit">Cerrar sesión</button>
-    </form>
+        <form method="POST" action="{{ url_for('logout') }}" class="logout-button">
+            <button type="submit">Cerrar sesión</button>
+        </form>
 
-    <h2>Agregar Nuevo Video</h2>
-    <form method="POST" enctype="multipart/form-data">
-        <div>
-            <label for="title">Título:</label>
-            <input type="text" id="title" name="title">
-        </div>
-        <div>
-            <label for="video_file">Archivo de Video (Formatos: {{ config.ALLOWED_EXTENSIONS|join(', ') }}):</label>
-            <input type="file" id="video_file" name="video_file" accept="video/*" required> 
-        </div>
-        <button type="submit">Agregar Video</button>
-    </form>
+        <h2>Agregar Nuevo Video</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <div>
+                <label for="title">Título:</label>
+                <input type="text" id="title" name="title">
+            </div>
+            <div>
+                <label for="video_file">Archivo de Video (Formatos: {{ config.ALLOWED_EXTENSIONS|join(', ') }}):</label>
+                <input type="file" id="video_file" name="video_file" accept="video/*" required> 
+            </div>
+            <button type="submit">Agregar Video</button>
+        </form>
 
-    <h2>Videos Alojados</h2>
-    {% if videos %}
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Título</th>
-                    <th>Nombre de Archivo</th>
-                    <th>URL Específica</th>
-                    <th>Código QR</th>
-                    <th>Fecha de Carga</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for video in videos %}
-                <tr>
-                    <td>{{ video.id }}</td>
-                    <td>{{ video.title if video.title else 'N/A' }}</td>
-                    <td>{{ video.filename }}</td>
-                    <td>
-                        <a href="{{ url_for('play_video', slug=video.url_slug) }}" target="_blank">
-                            /video/{{ video.url_slug }}
-                        </a>
-                    </td>
-                    <td>
-                        {% if video.qr_code_data_uri %}
-                            <img src="{{ video.qr_code_data_uri }}" alt="Código QR para {{ video.title if video.title else video.filename }}" class="qr-code-img">
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </td>
-                    <td>{{ video.created_at }}</td>
-                       <td>
-       <form method="POST" action="{{ url_for('delete_video', video_id=video.id) }}" style="display:inline;">
-           <button type="submit" onclick="return confirm('¿Estás seguro de que quieres eliminar este video?');">Eliminar</button>
-       </form>
-       <a href="{{ url_for('view_in_ar', slug=video.url_slug) }}" class="ar-button">Ver en RA</a>
-   </td>
-   
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>No hay videos alojados todavía.</p>
-    {% endif %}
+        <h2>Videos Alojados</h2>
+        {% if videos %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Título</th>
+                        <th>Archivo</th>
+                        <th>URL</th>
+                        <th>QR</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for video in videos %}
+                    <tr>
+                        <td>{{ video.id }}</td>
+                        <td>{{ video.title if video.title else 'N/A' }}</td>
+                        <td>{{ video.filename }}</td>
+                        <td>
+                            <a href="{{ url_for('play_video', slug=video.url_slug) }}" target="_blank">
+                                /video/{{ video.url_slug }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if video.qr_code_data_uri %}
+                                <img src="{{ video.qr_code_data_uri }}" alt="Código QR" class="qr-code-img">
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ video.created_at }}</td>
+                        <td class="actions-cell">
+                            <form method="POST" action="{{ url_for('delete_video', video_id=video.id) }}">
+                                <button type="submit" onclick="return confirm('¿Estás seguro?')">Eliminar</button>
+                            </form>
+                            <a href="{{ url_for('view_in_ar', slug=video.url_slug) }}" class="ar-button">RA</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="no-videos">No hay videos alojados todavía.</p>
+        {% endif %}
+    </div>
 </body>
 </html>
