@@ -69,11 +69,13 @@
                         {% endif %}
                     </td>
                     <td>{{ video.created_at }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('delete_video', video_id=video.id) }}" style="display:inline;">
-                            <button type="submit" onclick="return confirm('¿Estás seguro de que quieres eliminar este video?');">Eliminar</button>
-                        </form>
-                    </td>
+                       <td>
+       <form method="POST" action="{{ url_for('delete_video', video_id=video.id) }}" style="display:inline;">
+           <button type="submit" onclick="return confirm('¿Estás seguro de que quieres eliminar este video?');">Eliminar</button>
+       </form>
+       <a href="{{ url_for('view_in_ar', slug=video.url_slug) }}" class="ar-button">Ver en RA</a>
+   </td>
+   
                 </tr>
                 {% endfor %}
             </tbody>

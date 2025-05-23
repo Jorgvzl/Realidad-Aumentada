@@ -146,17 +146,21 @@ def admin_panel():
 def play_video(slug):
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT title, filename, mimetype FROM videos WHERE url_slug = ?", (slug,))
+    cursor.execute("SELECT title, filename, mimetype, url_slug FROM videos WHERE url_slug = ?", (slug,))
     video_data = cursor.fetchone()
 
     if video_data:
+        
         return render_template('video_player.html', 
-                               video_filename=video_data['filename'], 
-                               video_mimetype=video_data['mimetype'], 
-                               video_title=video_data['title'],  # Agregar el título aquí
-                               slug=slug)
+                           video_filename=video_data['filename'], 
+                           video_mimetype=video_data['mimetype'], 
+                           video_title=video_data['title'],  # Agregar el título aquí
+                           slug=slug)
+    
+
     else:
         return "Video no encontrado", 404
+
 
 
 @app.route('/uploads/videos/<filename>')
@@ -234,6 +238,21 @@ def modificar_video_url(video_url):
         # Si no se encontraron 3 '/', devolver la URL original o manejar el error
         return "No se encontraron suficientes '/' en la URL."
 
+@app.route('/view_in_ar/<string:slug>')
+def view_in_ar(slug):
+       db = get_db()
+       cursor = db.cursor()
+       cursor.execute("SELECT title, filename FROM videos WHERE url_slug = ?", (slug,))
+       video_data = cursor.fetchone()
+
+       if video_data:
+           return render_template('view_in_ar.html', 
+                                  video_filename=video_data['filename'], 
+                                  video_title=video_data['title'])
+       else:
+           return "Video no encontrado", 404
+   
+
 
 # El bloque if __name__ == '__main__': se usa para el desarrollo local.
 # Gunicorn (o el servidor WSGI que use Render) no ejecutará esto directamente.
@@ -245,5 +264,6 @@ if __name__ == '__main__':
     app.run(
         host='0.0.0.0', # Escucha en todas las interfaces de red
         port=int(os.environ.get("PORT", 5000)), # Render puede establecer la variable PORT
-        debug=True # Desactiva debug=True en producción real o usa una variable de entorno
+        debug=False, # Desactiva debug=True en producción real o usa una variable de entorno
+
     )
