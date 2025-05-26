@@ -229,5 +229,9 @@
             <p class="no-videos">No hay videos alojados todavía.</p>
         {% endif %}
     </div>
+    <div class="nav-links" style="margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+    <a href="{{ url_for('admin_panel') }}" style="margin-right: 15px;">Gestionar Videos</a>
+    <a href="{{ url_for('admin_models_panel') }}">Gestionar Modelos 3D</a>
+</div>
 </body>
 </html>

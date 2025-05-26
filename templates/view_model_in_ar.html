@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>{{ model_title if model_title else 'Modelo 3D' }} - Vista RA</title>
+    <script src="{{ url_for('static', filename='three_js_libs/three.js') }}"></script>
+    <script src="{{ url_for('static', filename='three_js_libs/OBJLoader.js') }}"></script>
+    <script src="{{ url_for('static', filename='three_js_libs/MTLLoader.js') }}"></script>
+    <script src="{{ url_for('static', filename='ar_toolkit_libs/jsartoolkit5/artoolkit.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='ar_toolkit_libs/jsartoolkit5/artoolkit.api.js') }}"></script>
+    <script src="{{ url_for('static', filename='ar_toolkit_libs/threex/threex-artoolkitsource.js') }}"></script>
+    <script src="{{ url_for('static', filename='ar_toolkit_libs/threex/threex-artoolkitcontext.js') }}"></script>
+    <script src="{{ url_for('static', filename='ar_toolkit_libs/threex/threex-arbasecontrols.js') }}"></script>
+    <script src="{{ url_for('static', filename='ar_toolkit_libs/threex/threex-armarkercontrols.js') }}"></script>
+    <style>
+        body { margin: 0px; overflow: hidden; font-family: Monospace; }
+        #arjs-loader {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.5em;
+        }
+        .marker-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 220px; 
+            height: 220px; 
+            border: 5px solid rgba(255, 255, 255, 0.8);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+            border-radius: 8px;
+            z-index: 10;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        .marker-frame.hidden {
+            opacity: 0;
+        }
+        .detected-text {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #00ff00;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            user-select: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 20;
+        }
+        .detected-text.visible {
+            opacity: 1;
+        }
+        .instruction-text {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 16px;
+            border-radius: 8px;
+            pointer-events: none;
+            user-select: none;
+            transition: opacity 0.3s ease;
+            opacity: 0; 
+        }
+    </style>
+</head>
+<body>
+    <div id="arjs-loader"><div>Cargando AR... Por favor, permita el acceso a la cámara.</div></div>
+    <div id="markerFrame" class="marker-frame"></div>
+    <div id="detectedText" class="detected-text">Detectado</div>
+    <div id="instructionText" class="instruction-text">Enfoque el marcador Hiro</div>
+
+    <script>
+        var scene, camera, renderer, clock, deltaTime, totalTime;
+        var arToolkitSource, arToolkitContext;
+        var markerRoot; 
+        var markerControls;
+
+        var detectedTextEl, markerFrameEl, instructionTextEl, arjsLoaderEl;
+
+        const modelSlug = "{{ model_slug }}";
+        const objFilename = "{{ obj_filename }}";
+        const mtlFilename = "{{ mtl_filename }}";
+        
+        const modelBasePath = `/uploads/models/${modelSlug}/`;
+
+        initialize();
+        animate();
+
+        function initialize() {
+            detectedTextEl = document.getElementById('detectedText');
+            markerFrameEl = document.getElementById('markerFrame');
+            instructionTextEl = document.getElementById('instructionText');
+            arjsLoaderEl = document.getElementById('arjs-loader');
+
+            scene = new THREE.Scene();
+
+            let ambientLight = new THREE.AmbientLight(0xcccccc, 1.5); // Brillo como en la versión anterior
+            scene.add(ambientLight);
+            
+            let directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // Luz como en la versión anterior
+            directionalLight.position.set(1, 1, 0).normalize();
+            scene.add(directionalLight);
+
+            camera = new THREE.Camera();
+            scene.add(camera);
+
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true
+            });
+            renderer.setClearColor(new THREE.Color('lightgrey'), 0);
+            // Configurar PixelRatio para nitidez en pantallas HiDPI
+            renderer.setPixelRatio(window.devicePixelRatio); 
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.domElement.style.position = 'absolute';
+            renderer.domElement.style.top = '0px';
+            renderer.domElement.style.left = '0px';
+            document.body.appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+            deltaTime = 0;
+            totalTime = 0;
+
+            arToolkitSource = new THREEx.ArToolkitSource({
+                sourceType: 'webcam',
+                sourceWidth: 640,
+                sourceHeight: 480,
+            });
+
+            arToolkitSource.init(function onReady() {
+                if (arjsLoaderEl) arjsLoaderEl.style.display = 'none';
+                
+                onResize(); // Llamar a onResize para configurar tamaños iniciales correctamente
+                
+                if (instructionTextEl) instructionTextEl.style.opacity = '1';
+                if (markerFrameEl) markerFrameEl.classList.remove('hidden');
+
+            }, function onError(err){
+                console.error("Error initializing ARToolkitSource:", err);
+                if (arjsLoaderEl) arjsLoaderEl.innerHTML = 'Error al acceder a la cámara. Asegúrese de haber concedido los permisos.';
+            });
+
+            window.addEventListener('resize', onResize);
+
+            arToolkitContext = new THREEx.ArToolkitContext({
+                cameraParametersUrl: "{{ url_for('static', filename='ar_data/camera_para.dat') }}",
+                detectionMode: 'mono_and_matrix',
+                matrixCodeType: '3x3',
+            });
+
+            arToolkitContext.init(function onCompleted() {
+                if (camera && arToolkitContext && arToolkitContext.arController) {
+                    camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+                }
+            });
+
+            markerRoot = new THREE.Group();
+            scene.add(markerRoot);
+            markerControls = new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+                type: 'pattern',
+                patternUrl: "{{ url_for('static', filename='ar_data/hiro.patt') }}",
+            });
+            scene.visible = false; 
+
+            function onProgress(xhr) { console.log((xhr.loaded / xhr.total * 100) + '% loaded'); }
+            function onErrorLoading(xhr) { console.error('An error happened during model loading:', xhr); }
+
+            new THREE.MTLLoader()
+                .setPath(modelBasePath)
+                .load(mtlFilename, function (materials) {
+                    materials.preload();
+                    new THREE.OBJLoader()
+                        .setMaterials(materials)
+                        .setPath(modelBasePath)
+                        .load(objFilename, function (object) { // 'object' es el THREE.Group cargado
+                            // Ajustar escala para que coincida con model.html
+                            object.scale.set(0.25, 0.25, 0.25); 
+                            // Ajustar posición Y para que coincida con model.html
+                            object.position.y = 0.25; 
+                            // Rotación X (mantener si es necesaria para tu modelo)
+                            object.rotation.x = -Math.PI / 2; 
+                            
+                            // Si el modelo en model.html usa object.children[0].material.side = THREE.DoubleSide
+                            // y tu modelo lo necesita, puedes aplicarlo aquí iterando por los hijos:
+                            object.traverse(function(child) {
+                                if (child.isMesh) {
+                                    child.material.side = THREE.DoubleSide; // Ejemplo
+                                }
+                            });
+
+                            markerRoot.add(object);
+                            console.log("Modelo cargado y ajustado:", object);
+                        }, onProgress, onErrorLoading);
+                }, onProgress, onErrorLoading);
+            
+            if (detectedTextEl) detectedTextEl.classList.remove('visible');
+        }
+        
+        function onResize() {
+            if (!arToolkitSource || !renderer || !arToolkitContext || !camera) {
+                // console.warn("onResize called before some components are initialized.");
+                return;
+            }
+
+            // Notificar a arToolkitSource sobre el cambio de tamaño
+            // (puede ajustar elementos internos de video/canvas si es necesario)
+            arToolkitSource.onResizeElement(); 
+
+            // Asegurar que el canvas de detección AR coincida con las dimensiones de la fuente
+            if (arToolkitContext.arController !== null) {
+                arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
+            }
+
+            // Actualizar aspect ratio de la cámara para renderizado de pantalla completa
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            // Actualizar tamaño y pixel ratio del renderizador para pantalla completa
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function update() {
+            if (!arToolkitSource || arToolkitSource.ready === false || !arToolkitContext || !arToolkitContext.arController) return;
+
+            arToolkitContext.update(arToolkitSource.domElement);
+            
+            if (markerRoot && detectedTextEl && markerFrameEl && instructionTextEl) {
+                if (markerRoot.visible) {
+                    if (!detectedTextEl.classList.contains('visible')) {
+                        detectedTextEl.classList.add('visible');
+                        markerFrameEl.classList.add('hidden');
+                        instructionTextEl.style.opacity = '0';
+                    }
+                } else {
+                    if (detectedTextEl.classList.contains('visible')) { 
+                        detectedTextEl.classList.remove('visible');
+                        markerFrameEl.classList.remove('hidden');
+                        instructionTextEl.style.opacity = '1';
+                    }
+                }
+            }
+            if(scene && camera) scene.visible = camera.visible; 
+        }
+
+        function render() {
+            if(renderer && scene && camera) renderer.render(scene, camera);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(clock){
+                deltaTime = clock.getDelta();
+                totalTime += deltaTime;
+            }
+            update();
+            render();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Este listener ahora principalmente asegura que las referencias a los elementos UI están listas
+            // y podría establecer un estado visual inicial si AR.js tarda mucho.
+            // initialize() ya llama a onResize() después de que arToolkitSource está 'ready'.
+            if (!arjsLoaderEl || arjsLoaderEl.style.display !== 'none') { 
+                if (instructionTextEl) instructionTextEl.style.opacity = '1';
+            }
+        });
+    </script>
+</body>
+</html>

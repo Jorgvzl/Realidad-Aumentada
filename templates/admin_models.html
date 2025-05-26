@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración de Modelos 3D</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* You can reuse styles from admin_panel.html or add new ones */
+        :root {
+            --primary-blue: #2563eb;
+            --secondary-blue: #3b82f6;
+            --light-blue: #e0f2fe;
+            --dark-blue: #1e40af;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+
+        h1, h2 {
+            color: var(--dark-blue);
+            margin-bottom: 1.5rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            border-bottom: 3px solid var(--light-blue);
+            padding-bottom: 1rem;
+        }
+
+        .logout-button-container { /* Renamed for clarity if used elsewhere */
+            float: right;
+            margin-top: -4rem; /* Adjust as needed */
+        }
+        
+        .nav-links {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .nav-links a {
+            margin-right: 1rem;
+            text-decoration: none;
+            color: var(--primary-blue);
+            font-weight: 500;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+
+        form {
+            background: var(--light-blue);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        form div {
+            margin-bottom: 1.2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark-blue);
+        }
+
+        input[type="text"], 
+        input[type="file"] {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #cbd5e1;
+            border-radius: 6px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        button, .button-link { /* Added .button-link for consistency */
+            padding: 0.8rem 1.5rem;
+            background: linear-gradient(to bottom, var(--primary-blue), var(--secondary-blue));
+            color: var(--white);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-decoration: none; /* For <a> styled as button */
+            display: inline-block; /* For <a> styled as button */
+        }
+
+        button:hover, .button-link:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+            background: linear-gradient(to bottom, var(--secondary-blue), var(--primary-blue));
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--white);
+            border-radius: 8px;
+            overflow: hidden; /* For rounded corners on table */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: var(--primary-blue); /* Changed to primary blue */
+            color: var(--white);
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background-color: #f8fafc; /* Lighter hover for rows */
+        }
+
+        .qr-code-img {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px; /* Small padding around QR */
+            transition: transform 0.3s ease;
+        }
+        .qr-code-img:hover {
+            transform: scale(1.1);
+        }
+        .actions-cell {
+            display: flex;
+            gap: 0.5rem; /* Space between action buttons */
+            align-items: center; /* Vertically align items if needed */
+        }
+        .flash-messages {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 1rem;
+        }
+        .flash-messages li {
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid transparent;
+            border-radius: .25rem;
+        }
+        .flash-messages li.success { /* Example for success, adapt as needed */
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .flash-messages li.error { /* Example for error */
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+    </style>
+</head><body>
+    <div class="container">
+        <h1>Gestor de Modelos 3D</h1>
+
+        <div class="logout-button-container">
+            <form method="POST" action="{{ url_for('logout') }}">
+                <button type="submit">Cerrar sesión</button>
+            </form>
+        </div>
+        
+        <div class="nav-links">
+            <a href="{{ url_for('admin_panel') }}">Gestionar Videos</a>
+            <a href="{{ url_for('admin_models_panel') }}">Gestionar Modelos 3D</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul class="flash-messages">
+            {% for category, message in messages %}
+              <li class="{{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <h2>Agregar Nuevo Modelo 3D</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <div>
+                <label for="title">Título del Modelo:</label>
+                <input type="text" id="title" name="title">
+            </div>
+            <div>
+                <label for="model_zip_file">Archivo del Modelo (ZIP con .obj, .mtl, texturas):</label>
+                <input type="file" id="model_zip_file" name="model_zip_file" accept=".zip" required>
+            </div>
+            <button type="submit">Agregar Modelo</button>
+        </form>
+
+        <h2>Modelos 3D Alojados</h2>
+        {% if models %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Título</th>
+                        <th>Slug (Carpeta)</th>
+                        <th>OBJ</th>
+                        <th>MTL</th>
+                        <th>QR para RA</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for model in models %}
+                    <tr>
+                        <td>{{ model.id }}</td>
+                        <td>{{ model.title if model.title else 'N/A' }}</td>
+                        <td>{{ model.slug }}</td>
+                        <td>{{ model.obj_filename }}</td>
+                        <td>{{ model.mtl_filename }}</td>
+                        <td>
+                            {% if model.qr_code_data_uri %}
+                                <img src="{{ model.qr_code_data_uri }}" alt="Código QR del Modelo" class="qr-code-img">
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ model.created_at.strftime('%Y-%m-%d %H:%M') if model.created_at else 'N/A' }}</td>
+                        <td class="actions-cell">
+                            <a href="{{ url_for('view_model_in_ar', slug=model.slug) }}" class="button-link" target="_blank" style="background: #10b981; font-size: 0.8em;">Ver en RA</a>
+                            <form method="POST" action="{{ url_for('delete_model', model_id=model.id) }}" style="margin:0;">
+                                <button type="submit" onclick="return confirm('¿Estás seguro de eliminar este modelo y todos sus archivos?')" style="background: #ef4444; font-size: 0.8em;">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No hay modelos 3D alojados todavía.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

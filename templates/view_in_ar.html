@@ -71,7 +71,7 @@
     </style>
 </head>
 <body>
-    <a-scene embedded arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" vr-mode-ui="enabled: false">
+    <a-scene embedded arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; debug:false; debugUIEnabled: false;" vr-mode-ui="enabled: false">
         <a-marker preset="hiro" id="hiro-marker" type="pattern" url="https://raw.githubusercontent.com/jeromeetienne/ar.js/3.3.2/data/data/patt.hiro">
             <a-video id="video" 
                      src="{{ url_for('uploaded_file', filename=video_filename) }}" 
