@@ -2,7 +2,7 @@ import sqlite3
 import os
 import uuid # Para generar nombres de archivo únicos o slugs
 from flask import Flask, render_template, request, redirect, url_for, g, send_from_directory
-from flask import session, flash # No necesitas redirect y url_for dos veces
+from flask import session, flash # session y flash ya están, redirect y url_for estaban duplicados en comentario
 import qrcode # Importar la librería qrcode
 import io # Para manejar la imagen en memoria
 import base64 # Para codificar la imagen en base64
@@ -16,7 +16,7 @@ app.config['UPLOAD_FOLDER'] = os.path.join('uploads', 'videos')
 app.config['MODELS_UPLOAD_FOLDER'] = os.path.join('uploads', 'models') # Carpeta para modelos 3D
 app.config['ALLOWED_EXTENSIONS'] = {'mp4', 'webm', 'ogg'}
 app.config['ALLOWED_MODEL_EXTENSIONS'] = {'zip'} # Extensiones permitidas para modelos 3D
-app.secret_key = '4dm1nUnefa'  # Cambia esto a una clave secreta real
+app.secret_key = '4dm1nUnefa'  # Cambia esto a una clave secreta real y más segura
 
 # Crear las carpetas de subidas si no existen
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
@@ -88,58 +88,14 @@ def allowed_model_file(filename):
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_MODEL_EXTENSIONS']
 
 # --- Rutas para Videos ---
-@app.route('/', methods=['GET', 'POST'])
+
+# Ruta para mostrar el panel de administración y el formulario de subida
+@app.route('/', methods=['GET']) # Simplificado a GET, ya que POST se maneja en add_video
 def admin_panel():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
+    
     db = get_db()
-   
-    if request.method == 'POST':
-        title = request.form.get('title')
-        video_file = request.files.get('video_file')
-
-        if not video_file or video_file.filename == '':
-            flash('Ningún archivo de video seleccionado.', 'error')
-            return redirect(request.url)
-
-        if video_file and allowed_file(video_file.filename):
-            original_filename = video_file.filename
-            extension = original_filename.rsplit('.', 1)[1].lower()
-            
-            unique_id = str(uuid.uuid4())
-            new_filename = f"{unique_id}.{extension}"
-            url_slug = f"video_{unique_id}"
-
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
-            video_file.save(filepath)
-            mimetype = video_file.mimetype
-
-            video_url = url_for('play_video', slug=url_slug, _external=True)
-            url_render = modificar_video_url(video_url) # Usa tu función de modificación de URL
-            
-            qr_img = qrcode.make(url_render)
-            buffered = io.BytesIO()
-            qr_img.save(buffered, format="PNG")
-            qr_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-            qr_code_data_uri = f"data:image/png;base64,{qr_base64}"
-
-            try:
-                cursor = db.cursor()
-                cursor.execute(
-                    "INSERT INTO videos (title, filename, url_slug, mimetype, qr_code_data_uri) VALUES (?, ?, ?, ?, ?)",
-                    (title if title else original_filename, new_filename, url_slug, mimetype, qr_code_data_uri)
-                )
-                db.commit()
-                flash('Video agregado exitosamente!', 'success')
-            except sqlite3.IntegrityError as e:
-                os.remove(filepath)
-                print(f"Error de integridad al insertar en la BD (videos): {e}")
-                flash(f"Error al guardar el video: {e}", 'error')
-            return redirect(url_for('admin_panel'))
-        else:
-            flash('Tipo de archivo de video no permitido.', 'error')
-            return redirect(request.url)
-
     cursor = db.cursor()
     cursor.execute("SELECT id, title, filename, url_slug, qr_code_data_uri, created_at FROM videos ORDER BY created_at DESC")
     videos_raw = cursor.fetchall()
@@ -152,16 +108,80 @@ def admin_panel():
             try:
                 video_item['created_at'] = datetime.strptime(raw_timestamp, '%Y-%m-%d %H:%M:%S')
             except ValueError:
-                 try:
+                try:
                     video_item['created_at'] = datetime.strptime(raw_timestamp, '%Y-%m-%d %H:%M:%S.%f')
-                 except ValueError:
+                except ValueError:
                     print(f"Advertencia: No se pudo parsear la fecha '{raw_timestamp}' para el video ID {video_item.get('id')}.")
-                    video_item['created_at'] = None
+                    video_item['created_at'] = None # O alguna fecha por defecto o dejar como string
         elif not isinstance(raw_timestamp, datetime) and raw_timestamp is not None:
-            video_item['created_at'] = None
+             video_item['created_at'] = None # Manejar si no es ni string ni datetime
         processed_videos.append(video_item)
 
     return render_template('admin_panel.html', videos=processed_videos, config=app.config)
+
+# Nueva ruta para manejar la subida de videos (el endpoint será 'add_video')
+@app.route('/admin/add_video', methods=['POST'])
+def add_video():
+    if not session.get('logged_in'):
+        flash('Debes iniciar sesión para realizar esta acción.', 'warning')
+        return redirect(url_for('login'))
+
+    db = get_db()
+    title = request.form.get('title')
+    video_file = request.files.get('video_file')
+
+    if not video_file or video_file.filename == '':
+        flash('Ningún archivo de video seleccionado.', 'error')
+        return redirect(url_for('admin_panel'))
+
+    if video_file and allowed_file(video_file.filename):
+        original_filename = video_file.filename
+        extension = original_filename.rsplit('.', 1)[1].lower()
+        
+        unique_id = str(uuid.uuid4())
+        new_filename = f"{unique_id}.{extension}"
+        url_slug = f"video_{unique_id}"
+
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+        
+        try:
+            video_file.save(filepath)
+            mimetype = video_file.mimetype
+
+            # Generar URL y QR DESPUÉS de guardar el archivo y ANTES de hacer commit a la BD
+            # para que si algo falla, no queden registros huérfanos.
+            video_url_for_qr = url_for('play_video', slug=url_slug, _external=True)
+            url_render = modificar_video_url(video_url_for_qr)
+            
+            qr_img = qrcode.make(url_render)
+            buffered = io.BytesIO()
+            qr_img.save(buffered, format="PNG")
+            qr_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+            qr_code_data_uri = f"data:image/png;base64,{qr_base64}"
+
+            cursor = db.cursor()
+            cursor.execute(
+                "INSERT INTO videos (title, filename, url_slug, mimetype, qr_code_data_uri) VALUES (?, ?, ?, ?, ?)",
+                (title if title else original_filename, new_filename, url_slug, mimetype, qr_code_data_uri)
+            )
+            db.commit()
+            flash('Video agregado exitosamente!', 'success')
+        except sqlite3.IntegrityError as e:
+            if os.path.exists(filepath): # Si falla la BD, eliminar el archivo subido
+                os.remove(filepath)
+            print(f"Error de integridad al insertar en la BD (videos): {e}")
+            flash(f"Error al guardar el video debido a un conflicto de datos: {e}", 'error')
+        except Exception as e: # Captura otras posibles excepciones durante save, QR, etc.
+            if os.path.exists(filepath): # Si falla algo, eliminar el archivo subido
+                os.remove(filepath)
+            print(f"Error al procesar la subida del video: {e}")
+            flash(f"Error al procesar la subida del video: {e}", 'error')
+        
+        return redirect(url_for('admin_panel'))
+    else:
+        flash('Tipo de archivo de video no permitido.', 'error')
+        return redirect(url_for('admin_panel'))
+
 
 @app.route('/video/<string:slug>')
 def play_video(slug):
@@ -172,10 +192,10 @@ def play_video(slug):
 
     if video_data:
         return render_template('video_player.html', 
-                           video_filename=video_data['filename'], 
-                           video_mimetype=video_data['mimetype'], 
-                           video_title=video_data['title'],
-                           slug=slug)
+                               video_filename=video_data['filename'], 
+                               video_mimetype=video_data['mimetype'], 
+                               video_title=video_data['title'],
+                               slug=slug)
     else:
         flash('Video no encontrado.', 'error')
         return "Video no encontrado", 404
@@ -239,7 +259,7 @@ def admin_models_panel():
 
         if not model_zip_file or model_zip_file.filename == '':
             flash('Ningún archivo de modelo seleccionado.', 'error')
-            return redirect(request.url)
+            return redirect(request.url) # request.url aquí está bien, es la misma página
 
         if model_zip_file and allowed_model_file(model_zip_file.filename):
             original_filename = model_zip_file.filename
@@ -250,23 +270,23 @@ def admin_models_panel():
                 os.makedirs(model_upload_path)
 
             zip_filepath = os.path.join(model_upload_path, original_filename)
-            model_zip_file.save(zip_filepath)
-
+            
             obj_filename = None
             mtl_filename = None
 
             try:
+                model_zip_file.save(zip_filepath)
+            
                 with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
-                    # Verifica que los nombres de archivo no contengan rutas absolutas o '..'
                     for member in zip_ref.namelist():
                         if member.startswith('/') or '..' in member:
                             raise ValueError("El archivo ZIP contiene rutas inválidas.")
                     zip_ref.extractall(model_upload_path)
                 
                 for item in os.listdir(model_upload_path):
-                    if item.lower().endswith('.obj') and obj_filename is None: # Toma el primero que encuentre
+                    if item.lower().endswith('.obj') and obj_filename is None:
                         obj_filename = item
-                    elif item.lower().endswith('.mtl') and mtl_filename is None: # Toma el primero que encuentre
+                    elif item.lower().endswith('.mtl') and mtl_filename is None:
                         mtl_filename = item
                 
                 if not obj_filename or not mtl_filename:
@@ -274,10 +294,10 @@ def admin_models_panel():
                     flash('Archivo .OBJ o .MTL no encontrado en el archivo ZIP.', 'error')
                     return redirect(request.url)
 
-                os.remove(zip_filepath) # Elimina el archivo ZIP después de la extracción
+                os.remove(zip_filepath) 
 
                 ar_model_url = url_for('view_model_in_ar', slug=slug, _external=True)
-                url_render_model = modificar_video_url(ar_model_url) # Reutiliza tu función de modificación
+                url_render_model = modificar_video_url(ar_model_url)
                 
                 qr_img_model = qrcode.make(url_render_model)
                 buffered_model = io.BytesIO()
@@ -292,17 +312,18 @@ def admin_models_panel():
                 )
                 db.commit()
                 flash('Modelo 3D subido exitosamente!', 'success')
+
             except zipfile.BadZipFile:
                 if os.path.exists(model_upload_path): shutil.rmtree(model_upload_path)
                 flash('Archivo ZIP inválido.', 'error')
                 return redirect(request.url)
-            except ValueError as ve: # Para el error de rutas inválidas
-                 if os.path.exists(model_upload_path): shutil.rmtree(model_upload_path)
-                 flash(str(ve), 'error')
-                 return redirect(request.url)
+            except ValueError as ve: 
+                if os.path.exists(model_upload_path): shutil.rmtree(model_upload_path)
+                flash(str(ve), 'error')
+                return redirect(request.url)
             except Exception as e:
                 if os.path.exists(model_upload_path): shutil.rmtree(model_upload_path)
-                flash(f'Ocurrió un error: {str(e)}', 'error')
+                flash(f'Ocurrió un error al procesar el modelo: {str(e)}', 'error')
                 print(f"Error al procesar la subida del modelo: {e}")
                 return redirect(request.url)
             
@@ -318,7 +339,7 @@ def admin_models_panel():
     
     processed_models = []
     for row_data in models_raw:
-        model_item = dict(row_data) # Convierte sqlite3.Row a dict para modificación
+        model_item = dict(row_data) 
         raw_timestamp = model_item.get('created_at')
 
         if isinstance(raw_timestamp, str):
@@ -359,7 +380,6 @@ def view_model_in_ar(slug):
 @app.route('/uploads/models/<string:slug>/<path:filename>')
 def serve_model_file(slug, filename):
     model_dir = os.path.join(app.config['MODELS_UPLOAD_FOLDER'], slug)
-    # Basic security check to prevent directory traversal beyond the intended slug folder
     if ".." in filename or filename.startswith("/"):
         return "Acceso denegado", 403
     return send_from_directory(model_dir, filename)
@@ -398,41 +418,36 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        if username == 'admin' and password == '4dm1n': # Considera usar variables de entorno para credenciales
+        if username == 'admin' and password == '4dm1n': 
             session['logged_in'] = True
             flash('Inicio de sesión exitoso!', 'success')
             return redirect(url_for('admin_panel'))
         else:
             flash('Credenciales incorrectas. Inténtalo de nuevo.', 'error')
-            return redirect(url_for('login'))
+            return redirect(url_for('login')) # Redirige a login para reintentar
+    # Si es GET, o si el login falla y se redirige aquí sin POST (aunque el flujo actual no hace eso)
+    if session.get('logged_in'): # Si ya está logueado y visita /login, redirigir al panel
+        return redirect(url_for('admin_panel'))
     return render_template('login.html')
 
-@app.route('/logout', methods=['POST']) # Es mejor que logout sea POST para evitar CSRF
+
+@app.route('/logout', methods=['POST']) 
 def logout():
     session.pop('logged_in', None)
     flash('Has cerrado sesión.', 'info')
     return redirect(url_for('login'))
 
 def modificar_video_url(video_url):
-    """
-    Modifica una URL, eliminando el contenido hasta los 3 primeros '/'
-    y luego agrega el prefijo 'https://realidad-aumentada-sa1f.onrender.com/'.
-    Asegúrate de que esta URL base sea la correcta para tu despliegue.
-    """
-    # Este es un ejemplo, ajusta la URL base según tu configuración de Render o similar
-    # RENDER_EXTERNAL_URL es una variable de entorno que Render suele proporcionar.
-    # Si no está disponible, usa una URL fija o configúrala tú mismo.
     base_render_url = os.environ.get('RENDER_EXTERNAL_URL', 'https://realidad-aumentada-sa1f.onrender.com')
+    path_part = ""
+    if video_url.startswith('http://') or video_url.startswith('https://'):
+        try:
+            path_part = '/' + video_url.split('/', 3)[3]
+        except IndexError:
+            path_part = '/' # Si es solo el dominio base
+    else: # Si es una ruta relativa como /video/slug
+        path_part = video_url if video_url.startswith('/') else '/' + video_url
 
-    try:
-        # Encuentra la parte de la ruta después del dominio local
-        # Ejemplo: http://127.0.0.1:5000/video/video_slug -> /video/video_slug
-        path_part = video_url.split('/', 3)[3] if video_url.count('/') >= 3 else video_url
-    except IndexError: # Si la URL no tiene el formato esperado
-        path_part = video_url.split('/')[-1] if '/' in video_url else video_url
-
-
-    # Asegura que la URL base no tenga una barra al final si path_part ya la tiene al inicio o viceversa
     if base_render_url.endswith('/') and path_part.startswith('/'):
         nueva_url = base_render_url + path_part[1:]
     elif not base_render_url.endswith('/') and not path_part.startswith('/'):
@@ -447,5 +462,5 @@ if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
         port=int(os.environ.get("PORT", 5000)),
-        debug=True # Desactiva debug=True en producción real
+        debug=False # Desactiva debug=True en producción real
     )

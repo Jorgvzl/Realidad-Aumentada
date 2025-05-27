@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración de Videos</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         :root {
             --primary-blue: #2563eb;
@@ -12,14 +11,19 @@
             --light-blue: #e0f2fe;
             --dark-blue: #1e40af;
             --white: #ffffff;
+            --gray-background: #f8fafc;
+            --text-color: #1e293b;
+            --border-color-light: #cbd5e1;
+            --border-color-medium: #e2e8f0;
+            --progress-bar-background: #e0e0e0;
         }
 
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
             margin: 0;
             padding: 2rem;
-            background-color: #f8fafc;
-            color: #1e293b;
+            background-color: var(--gray-background);
+            color: var(--text-color);
         }
 
         .container {
@@ -43,9 +47,9 @@
             padding-bottom: 1rem;
         }
 
-        .logout-button {
+        .logout-button-container { /* Changed from class on form to a container div */
             float: right;
-            margin-top: -4rem;
+            margin-top: -4rem; /* Adjust as needed based on h1 height */
         }
 
         form {
@@ -54,6 +58,14 @@
             border-radius: 8px;
             margin-bottom: 2rem;
         }
+        /* Style for the logout form to not have the blue background */
+        form.logout-form {
+            background: transparent;
+            padding: 0;
+            margin-bottom: 0;
+            box-shadow: none;
+        }
+
 
         form div {
             margin-bottom: 1.2rem;
@@ -66,12 +78,13 @@
             color: var(--dark-blue);
         }
 
-        input[type="text"], 
+        input[type="text"],
         input[type="file"] {
             width: 100%;
             padding: 0.8rem;
-            border: 2px solid #cbd5e1;
+            border: 2px solid var(--border-color-light);
             border-radius: 6px;
+            box-sizing: border-box; /* Added for consistent sizing */
             transition: border-color 0.3s ease;
         }
 
@@ -100,6 +113,15 @@
             background: linear-gradient(to bottom, var(--secondary-blue), var(--primary-blue));
         }
 
+        button:disabled {
+            background: #cccccc; /* Light gray for disabled state */
+            color: #666666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -112,7 +134,7 @@
         th, td {
             padding: 1rem;
             text-align: left;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--border-color-medium);
         }
 
         th {
@@ -122,13 +144,13 @@
         }
 
         tr:hover {
-            background-color: #f8fafc;
+            background-color: var(--gray-background); /* Use variable for consistency */
         }
 
         .qr-code-img {
             width: 80px;
             height: 80px;
-            border: 2px solid #e2e8f0;
+            border: 2px solid var(--border-color-medium);
             border-radius: 6px;
             padding: 4px;
             transition: transform 0.3s ease;
@@ -146,6 +168,7 @@
             color: var(--dark-blue);
             border-radius: 20px;
             font-weight: 500;
+            text-decoration: none; /* Added to ensure it looks like a button */
             transition: all 0.2s ease;
         }
 
@@ -158,33 +181,95 @@
         .actions-cell {
             display: flex;
             gap: 0.5rem;
+            align-items: center; /* Vertically align items in actions cell */
         }
+
+        .no-videos {
+            padding: 1rem;
+            text-align: center;
+            color: #666;
+        }
+        
+        /* Progress Bar Styles */
+        .progress-container {
+            width: 100%;
+            background-color: var(--progress-bar-background);
+            border-radius: 6px;
+            margin-top: 10px;
+            overflow: hidden; /* Ensures the inner bar respects border radius */
+            display: none; /* Hidden by default */
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 24px; /* Slightly taller for better visibility */
+            background-color: var(--primary-blue);
+            border-radius: 6px; /* Match container for smooth look */
+            text-align: center;
+            line-height: 24px; /* Vertically center text */
+            color: var(--white);
+            font-weight: 500;
+            transition: width 0.3s ease-out; /* Smooth transition for width change */
+        }
+        .progress-text-status {
+            display: block; /* Make it a block to appear on its own line */
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: var(--dark-blue);
+        }
+
+        .nav-links {
+            margin-bottom: 20px; 
+            padding-bottom: 10px; 
+            border-bottom: 1px solid #eee;
+            margin-top: 2rem; /* Added margin top for spacing */
+        }
+        .nav-links a {
+            margin-right: 15px;
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+            color: var(--dark-blue);
+        }
+
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="logout-button-container">
+             <form method="POST" action="{{ url_for('logout') if url_for else '#' }}" class="logout-form">
+                <button type="submit">Cerrar sesión</button>
+            </form>
+        </div>
+
         <h1>Gestor de Videos</h1>
 
-        <form method="POST" action="{{ url_for('logout') }}" class="logout-button">
-            <button type="submit">Cerrar sesión</button>
-        </form>
-
         <h2>Agregar Nuevo Video</h2>
-        <form method="POST" enctype="multipart/form-data">
+        <!-- Form for adding video. Removed enctype for now as JS handles file.
+             If you intend to submit via traditional POST with file, add it back.
+             The JS progress bar here is for client-side feedback before submission. -->
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('add_video') if url_for else '#' }}" id="addVideoForm">
             <div>
                 <label for="title">Título:</label>
                 <input type="text" id="title" name="title">
             </div>
             <div>
-                <label for="video_file">Archivo de Video (Formatos: {{ config.ALLOWED_EXTENSIONS|join(', ') }}):</label>
-                <input type="file" id="video_file" name="video_file" accept="video/*" required> 
+                <label for="video_file">Archivo de Video (Formatos: {{ config.ALLOWED_EXTENSIONS|join(', ') if config else 'mp4, mov, avi' }}):</label>
+                <input type="file" id="video_file" name="video_file" accept="video/*" required>
+                
+                <div class="progress-container" id="progress-container">
+                    <div class="progress-bar" id="progress-bar">0%</div>
+                </div>
+                <span class="progress-text-status" id="progress-text-status"></span>
             </div>
-            <button type="submit">Agregar Video</button>
+            <button type="submit" id="submit-button">Agregar Video</button>
         </form>
 
         <h2>Videos Alojados</h2>
-        {% if videos %}
-            <table>
+        {% if videos %} <table>
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -203,7 +288,7 @@
                         <td>{{ video.title if video.title else 'N/A' }}</td>
                         <td>{{ video.filename }}</td>
                         <td>
-                            <a href="{{ url_for('play_video', slug=video.url_slug) }}" target="_blank">
+                            <a href="{{ url_for('play_video', slug=video.url_slug) if url_for else '#' }}" target="_blank">
                                 /video/{{ video.url_slug }}
                             </a>
                         </td>
@@ -216,10 +301,12 @@
                         </td>
                         <td>{{ video.created_at }}</td>
                         <td class="actions-cell">
-                            <form method="POST" action="{{ url_for('delete_video', video_id=video.id) }}">
+                            <!-- The confirm dialog will not work in the iframe preview.
+                                 In a real environment, it would. For the preview, it will proceed without confirmation. -->
+                            <form method="POST" action="{{ url_for('delete_video', video_id=video.id) if url_for else '#' }}" style="display: inline;">
                                 <button type="submit" onclick="return confirm('¿Estás seguro?')">Eliminar</button>
                             </form>
-                            <a href="{{ url_for('view_in_ar', slug=video.url_slug) }}" class="ar-button">RA</a>
+                            <a href="{{ url_for('view_in_ar', slug=video.url_slug) if url_for else '#' }}" class="ar-button">RA</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -227,11 +314,144 @@
             </table>
         {% else %}
             <p class="no-videos">No hay videos alojados todavía.</p>
-        {% endif %}
+        {% endif %} <!-- 
+        <div id="videos-list-placeholder" style="display: none;">
+            <table>
+                <thead><tr><th>ID</th><th>Título</th><th>Archivo</th><th>URL</th><th>QR</th><th>Fecha</th><th>Acciones</th></tr></thead>
+                <tbody>
+                    <tr><td>1</td><td>Demo Video 1</td><td>demo1.mp4</td><td><a href="#">/video/demo1</a></td><td>N/A</td><td>2024-05-27</td><td class="actions-cell"><button>Eliminar</button><a href="#" class="ar-button">RA</a></td></tr>
+                </tbody>
+            </table>
+        </div>
+        -->
+
     </div>
-    <div class="nav-links" style="margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
-    <a href="{{ url_for('admin_panel') }}" style="margin-right: 15px;">Gestionar Videos</a>
-    <a href="{{ url_for('admin_models_panel') }}">Gestionar Modelos 3D</a>
-</div>
+    <div class="nav-links">
+        <a href="{{ url_for('admin_panel') if url_for else '#' }}">Gestionar Videos</a>
+        <a href="{{ url_for('admin_models_panel') if url_for else '#' }}">Gestionar Modelos 3D</a>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const videoFileInput = document.getElementById('video_file');
+        const progressBarContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressTextStatus = document.getElementById('progress-text-status');
+        const submitButton = document.getElementById('submit-button');
+        // const addVideoForm = document.getElementById('addVideoForm'); // Get the form
+
+        // Disable submit button initially
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
+
+        if (videoFileInput) {
+            videoFileInput.addEventListener('change', function (event) {
+                const file = event.target.files[0];
+
+                if (file) {
+                    // Show progress bar
+                    if (progressBarContainer) progressBarContainer.style.display = 'block';
+                    if (progressBar) {
+                        progressBar.style.width = '0%';
+                        progressBar.textContent = '0%';
+                    }
+                    if (progressTextStatus) progressTextStatus.textContent = 'Iniciando carga del archivo...';
+                    if (submitButton) submitButton.disabled = true; // Keep disabled during processing
+
+                    const reader = new FileReader();
+
+                    reader.onprogress = function (e) {
+                        if (e.lengthComputable) {
+                            const percentage = Math.round((e.loaded / e.total) * 100);
+                            if (progressBar) {
+                                progressBar.style.width = percentage + '%';
+                                progressBar.textContent = percentage + '%';
+                            }
+                            if (progressTextStatus) progressTextStatus.textContent = `Cargando: ${percentage}%`;
+                        }
+                    };
+
+                    reader.onloadend = function (e) {
+                        if (progressBar) {
+                            progressBar.style.width = '100%';
+                            progressBar.textContent = '100%';
+                        }
+                        if (progressTextStatus) progressTextStatus.textContent = 'Archivo listo para subir. Presione "Agregar Video".';
+                        if (submitButton) submitButton.disabled = false; // Enable submit button
+                    };
+                    
+                    reader.onloadstart = function() {
+                        if (progressTextStatus) progressTextStatus.textContent = 'Comenzando a leer el archivo...';
+                    };
+
+                    reader.onerror = function () {
+                        if (progressBarContainer) progressBarContainer.style.display = 'none'; // Hide on error
+                        if (progressTextStatus) progressTextStatus.textContent = 'Error al leer el archivo.';
+                        if (submitButton) submitButton.disabled = true; // Keep disabled on error
+                        if (videoFileInput) videoFileInput.value = ''; // Reset file input
+                    };
+
+                    // This reads the file into memory. For very large files, this can take time.
+                    // This is NOT uploading to the server.
+                    reader.readAsArrayBuffer(file); 
+
+                } else {
+                    // No file selected or selection cancelled
+                    if (progressBarContainer) progressBarContainer.style.display = 'none';
+                    if (progressBar) {
+                        progressBar.style.width = '0%';
+                        progressBar.textContent = '0%';
+                    }
+                    if (progressTextStatus) progressTextStatus.textContent = '';
+                    if (submitButton) submitButton.disabled = true;
+                }
+            });
+        }
+
+        // Optional: If you want to show a message during actual form submission (after clicking "Agregar Video")
+        // This is different from the FileReader progress.
+        // if (addVideoForm && submitButton) {
+        //     addVideoForm.addEventListener('submit', function() {
+        //         // This happens when the form is actually being sent to the server
+        //         if (videoFileInput.files.length > 0) {
+        //             submitButton.disabled = true;
+        //             submitButton.textContent = 'Subiendo...'; 
+        //             if (progressTextStatus) progressTextStatus.textContent = 'Enviando video al servidor... Esto puede tardar.';
+        //             // Note: True server upload progress requires XMLHttpRequest or Fetch API with progress events,
+        //             // which is more complex than a standard form submission.
+        //         }
+        //     });
+        // }
+
+        // Fallback for Jinja variables if not in Flask context (for local preview)
+        // This part is for making the template somewhat viewable if not run in Flask
+        if (typeof videos === 'undefined') {
+            const videosListPlaceholder = document.getElementById('videos-list-placeholder');
+            // if (videosListPlaceholder) videosListPlaceholder.style.display = 'block';
+            // Check if there's a table generated by Jinja, if not, show placeholder
+            const existingTable = document.querySelector('.container table');
+            if (!existingTable && document.querySelector('.no-videos')) {
+                 // If "no-videos" message is there, it means Jinja ran with empty videos.
+                 // If even "no-videos" is not there, then Jinja didn't run.
+            }
+        }
+        // Handle confirm dialog for iframe
+        const deleteForms = document.querySelectorAll('form[action*="delete_video"]');
+        deleteForms.forEach(form => {
+            form.addEventListener('submit', function(event) {
+                // In a real browser, confirm works. In some iframe sandboxes, it might be blocked or auto-confirm.
+                // For the purpose of this environment, we'll assume it proceeds.
+                // If you need a custom modal, that would be a more complex UI change.
+                if (!window.confirm('¿Estás seguro? (Esta confirmación podría no funcionar en el preview)')) {
+                    event.preventDefault();
+                }
+            });
+        });
+
+
+    });
+</script>
+
 </body>
 </html>
